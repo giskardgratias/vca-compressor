@@ -20,24 +20,29 @@ jobs:
       - name: Setup VST3 SDK
         shell: pwsh
         run: |
+          # Téléchargement du SDK
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/heads/master.zip" -OutFile sdk.zip
           Expand-Archive -Path sdk.zip -DestinationPath .
           $sdkFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
           Rename-Item -Path $sdkFolder.FullName -NewName "vst3sdk"
+          
+          # Initialisation des sous-modules du SDK (crucial pour SMTG_VST3_SDK)
           cd vst3sdk
+          git init
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vstgui/archive/refs/heads/master.zip" -OutFile vstgui.zip
           Expand-Archive -Path vstgui.zip -DestinationPath .
           $guiFolder = Get-ChildItem -Directory -Filter "vstgui-*" | Select-Object -First 1
           Rename-Item -Path $guiFolder.FullName -NewName "vstgui"
 
-      - name: Configure CMake (Ninja Force)
+      - name: Configure CMake
         shell: cmd
         run: |
           cmake -G Ninja -B build ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk" ^
           -DSMTG_ADD_VSTGUI=ON ^
-          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
+          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON ^
+          -DSDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk"
 
       - name: Build plugin
         shell: cmd
@@ -46,10 +51,10 @@ jobs:
       - name: Find and stage VST3
         shell: pwsh
         run: |
-          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Where-Object { $_.FullName -like "*Release*" -or $_.FullName -like "*build/vst3*" } | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vst3) { throw "Erreur : Plugin VST3 non généré." }
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Where-Object { $_.FullName -like "*Release*" -or $_.FullName -like "*vst3*" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vst3) { throw "Plugin VST3 introuvable." }
           New-Item -ItemType Directory -Force -Path staging
-          Copy-Item -Recurse -Force $vst3 staging/
+          if (Test-Path "$vst3\*") { Copy-Item -Recurse -Force "$vst3" staging/ } else { Copy-Item -Force "$vst3" staging/ }
 
       - name: Install Inno Setup
         shell: pwsh
