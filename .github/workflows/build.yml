@@ -36,6 +36,7 @@ jobs:
         shell: pwsh
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vst3) { throw "Fichier VST3 non trouve" }
           New-Item -ItemType Directory -Force -Path staging
           Copy-Item -Recurse -Force $vst3 staging/
 
@@ -73,7 +74,7 @@ jobs:
 
       - name: Build installer
         shell: cmd
-        run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss'
+        run: "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" setup.iss"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
