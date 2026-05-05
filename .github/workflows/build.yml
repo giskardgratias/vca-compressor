@@ -17,22 +17,11 @@ jobs:
         with:
           arch: x64
 
-      - name: Setup VST3 SDK
-        shell: pwsh
+      - name: Checkout VST3 SDK (Recursive)
+        shell: bash
         run: |
-          # Téléchargement du SDK
-          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/heads/master.zip" -OutFile sdk.zip
-          Expand-Archive -Path sdk.zip -DestinationPath .
-          $sdkFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
-          Rename-Item -Path $sdkFolder.FullName -NewName "vst3sdk"
-          
-          # Initialisation des sous-modules du SDK (crucial pour SMTG_VST3_SDK)
-          cd vst3sdk
-          git init
-          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vstgui/archive/refs/heads/master.zip" -OutFile vstgui.zip
-          Expand-Archive -Path vstgui.zip -DestinationPath .
-          $guiFolder = Get-ChildItem -Directory -Filter "vstgui-*" | Select-Object -First 1
-          Rename-Item -Path $guiFolder.FullName -NewName "vstgui"
+          # Clonage récursif pour obtenir tous les fichiers de configuration CMake
+          git clone --recursive https://github.com/steinbergmedia/vst3sdk.git vst3sdk
 
       - name: Configure CMake
         shell: cmd
@@ -41,8 +30,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release ^
           -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk" ^
           -DSMTG_ADD_VSTGUI=ON ^
-          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON ^
-          -DSDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk"
+          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
 
       - name: Build plugin
         shell: cmd
