@@ -1,0 +1,106 @@
+name: Build VCA Compressor VST3 + Installer
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  VST3_SDK_TAG: "v3.7.9"
+  BUILD_TYPE: Release
+
+jobs:
+  build-windows:
+    name: Build & Package (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Cache VST3 SDK
+        id: cache-vst3sdk
+        uses: actions/cache@v4
+        with:
+          path: vst3sdk
+          key: vst3sdk-${{ env.VST3_SDK_TAG }}
+
+      - name: Clone VST3 SDK
+        if: steps.cache-vst3sdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --recursive --depth 1 --branch ${{ env.VST3_SDK_TAG }} `
+            https://github.com/steinbergmedia/vst3sdk.git vst3sdk
+
+      - name: Configure CMake
+        run: |
+          cmake -B build `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DVST3_SDK_ROOT="${{ github.workspace }}/vst3sdk" `
+            -DSMTG_ADD_VSTGUI=OFF `
+            -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
+
+      - name: Build plugin
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Find .vst3 output
+        id: find_vst3
+        shell: pwsh
+        run: |
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" |
+                    Select-Object -First 1 -ExpandProperty FullName
+          echo "VST3_PATH=$vst3" >> $env:GITHUB_OUTPUT
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile innosetup.exe
+          Start-Process -FilePath innosetup.exe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+
+      - name: Stage plugin files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging/plugin
+          Copy-Item -Recurse -Force "${{ steps.find_vst3.outputs.VST3_PATH }}" "staging/plugin/"
+
+      - name: Write Inno Setup script
+        shell: pwsh
+        run: |
+          $iss = @"
+          [Setup]
+          AppName=VCA Compressor
+          AppVersion=1.0.0
+          AppPublisher=YourStudio
+          DefaultDirName={commonpf64}\VCA Compressor
+          OutputDir=installer_output
+          OutputBaseFilename=VCACompressor_v1.0.0_Setup
+          Compression=lzma2/ultra64
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          WizardStyle=modern
+          DisableProgramGroupPage=yes
+
+          [Languages]
+          Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+
+          [Files]
+          Source: "staging\plugin\*"; DestDir: "{cf}\VST3\"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{group}\Uninstall VCA Compressor"; Filename: "{uninstallexe}"
+          "@
+          $iss | Out-File -FilePath setup.iss -Encoding UTF8
+
+      - name: Compile installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss'
+        shell: pwsh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VCACompressor-Windows-x64
+          path: installer_output/*.exe
+          retention-days: 30
