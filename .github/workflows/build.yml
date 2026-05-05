@@ -12,16 +12,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup VST3 SDK (No-Git Method)
+      - name: Setup VST3 SDK
         shell: pwsh
         run: |
-          # 1. Télécharger et extraire le SDK principal
-          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/tags/v3.7.9_build-61.zip" -OutFile sdk.zip
+          # Téléchargement du SDK principal via branche master pour éviter les 404
+          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/heads/master.zip" -OutFile sdk.zip
           Expand-Archive -Path sdk.zip -DestinationPath .
           $sdkFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
           Rename-Item -Path $sdkFolder.FullName -NewName "vst3sdk"
 
-          # 2. Télécharger VSTGUI séparément (souvent requis pour le build)
+          # Téléchargement de VSTGUI (obligatoire pour beaucoup de projets)
           cd vst3sdk
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vstgui/archive/refs/heads/master.zip" -OutFile vstgui.zip
           Expand-Archive -Path vstgui.zip -DestinationPath .
@@ -39,8 +39,8 @@ jobs:
       - name: Find and stage VST3
         shell: pwsh
         run: |
-          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vst3) { Write-Error "Fichier VST3 non généré !"; exit 1 }
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Where-Object { $_.FullName -like "*Release*" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vst3) { Write-Error "VST3 non généré dans le dossier build"; exit 1 }
           New-Item -ItemType Directory -Force -Path staging
           Copy-Item -Recurse -Force $vst3 staging/
 
@@ -57,14 +57,12 @@ jobs:
           [Setup]
           AppName=VCA Compressor
           AppVersion=1.0.0
-          AppPublisher=YourStudio
           DefaultDirName={commonpf64}\VCA Compressor
           OutputDir=installer_output
-          OutputBaseFilename=VCACompressor_v1.0.0_Setup
+          OutputBaseFilename=VCACompressor_Setup
           Compression=lzma2/ultra64
           SolidCompression=yes
           ArchitecturesInstallIn64BitMode=x64
-          WizardStyle=modern
           [Files]
           Source: "staging\*"; DestDir: "{cf}\VST3\"; Flags: ignoreversion recursesubdirs createallsubdirs
           "@
@@ -79,4 +77,3 @@ jobs:
         with:
           name: VCACompressor-Windows-x64
           path: installer_output/*.exe
-          retention-days: 30
