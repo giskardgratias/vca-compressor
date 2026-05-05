@@ -20,7 +20,6 @@ jobs:
       - name: Checkout VST3 SDK
         shell: bash
         run: |
-          # On clone le SDK dans un dossier local prévisible
           git clone --recursive https://github.com/steinbergmedia/vst3sdk.git sdk-folder
           mv sdk-folder/* . 2>/dev/null || true
           mv sdk-folder/.[!.]* . 2>/dev/null || true
@@ -48,9 +47,7 @@ jobs:
 
       - name: Install Inno Setup
         shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile innosetup.exe
-          Start-Process -FilePath innosetup.exe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+        run: choco install innosetup --version=6.2.2 -y
 
       - name: Create installer script
         shell: pwsh
@@ -59,7 +56,7 @@ jobs:
           [Setup]
           AppName=VCA Compressor
           AppVersion=1.0.0
-          DefaultDirName={commonpf64}\VCA Compressor
+          DefaultDirName={commonpf64}\VST3\VCA Compressor
           OutputDir=installer_output
           OutputBaseFilename=VCACompressor_Setup
           Compression=lzma2/ultra64
