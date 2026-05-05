@@ -12,18 +12,19 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup VST3 SDK
+      - name: Get VST3 SDK
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/tags/v3.7.9_build-61.zip" -OutFile vst3sdk.zip
-          Expand-Archive -Path vst3sdk.zip -DestinationPath .
-          # On deplace le contenu pour avoir un chemin simple
-          $folder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
-          Move-Item -Path "$($folder.FullName)" -Destination "vst3sdk"
+          git clone --recursive --depth 1 --branch v3.7.9 https://github.com/steinbergmedia/vst3sdk.git ${{ github.workspace }}/vst3sdk
 
       - name: Configure CMake
         shell: cmd
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST3_SDK_ROOT=%GITHUB_WORKSPACE%/vst3sdk -DSMTG_ADD_VSTGUI=OFF -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%/vst3sdk" ^
+          -DSMTG_ADD_VSTGUI=OFF ^
+          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
 
       - name: Build plugin
         shell: cmd
