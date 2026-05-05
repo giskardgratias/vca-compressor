@@ -12,8 +12,10 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup MSVC Dev Cmd
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Setup VST3 SDK
         shell: pwsh
@@ -30,7 +32,13 @@ jobs:
 
       - name: Configure CMake
         shell: cmd
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST3_SDK_ROOT=%GITHUB_WORKSPACE%\vst3sdk -DSMTG_ADD_VSTGUI=ON -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
+        run: |
+          cmake -B build ^
+          -G "Visual Studio 17 2022" -A x64 ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk" ^
+          -DSMTG_ADD_VSTGUI=ON ^
+          -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
 
       - name: Build plugin
         shell: cmd
@@ -40,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Where-Object { $_.FullName -like "*Release*" } | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vst3) { Write-Error "VST3 non généré"; exit 1 }
+          if (-not $vst3) { throw "Erreur : Plugin VST3 non généré." }
           New-Item -ItemType Directory -Force -Path staging
           Copy-Item -Recurse -Force $vst3 staging/
 
