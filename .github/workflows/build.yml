@@ -45,10 +45,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path staging
           if (Test-Path "$vst3\*") { Copy-Item -Recurse -Force "$vst3" staging/ } else { Copy-Item -Force "$vst3" staging/ }
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --version=6.2.2 -y
-
       - name: Create installer script
         shell: pwsh
         run: |
@@ -68,8 +64,11 @@ jobs:
           $iss | Out-File -FilePath setup.iss -Encoding utf8
 
       - name: Build installer
-        shell: cmd
-        run: "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" setup.iss"
+        shell: pwsh
+        run: |
+          # On cherche l'exécutable ISCC.exe sur le système car il est déjà pré-installé
+          $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup*" -Filter "ISCC.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          & $iscc setup.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
