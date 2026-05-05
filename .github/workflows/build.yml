@@ -12,16 +12,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
       - name: Setup VST3 SDK
         shell: pwsh
         run: |
-          # Téléchargement du SDK master (URL permanente)
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/heads/master.zip" -OutFile sdk.zip
           Expand-Archive -Path sdk.zip -DestinationPath .
           $sdkFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
           Rename-Item -Path $sdkFolder.FullName -NewName "vst3sdk"
-
-          # Téléchargement de VSTGUI
           cd vst3sdk
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vstgui/archive/refs/heads/master.zip" -OutFile vstgui.zip
           Expand-Archive -Path vstgui.zip -DestinationPath .
@@ -40,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Where-Object { $_.FullName -like "*Release*" } | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vst3) { Write-Error "VST3 introuvable dans le dossier build"; exit 1 }
+          if (-not $vst3) { Write-Error "VST3 non généré"; exit 1 }
           New-Item -ItemType Directory -Force -Path staging
           Copy-Item -Recurse -Force $vst3 staging/
 
