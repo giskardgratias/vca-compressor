@@ -17,18 +17,20 @@ jobs:
         with:
           arch: x64
 
-      - name: Checkout VST3 SDK (Recursive)
+      - name: Checkout VST3 SDK
         shell: bash
         run: |
-          # Clonage récursif pour obtenir tous les fichiers de configuration CMake
-          git clone --recursive https://github.com/steinbergmedia/vst3sdk.git vst3sdk
+          # On clone le SDK dans un dossier local prévisible
+          git clone --recursive https://github.com/steinbergmedia/vst3sdk.git sdk-folder
+          mv sdk-folder/* . 2>/dev/null || true
+          mv sdk-folder/.[!.]* . 2>/dev/null || true
 
       - name: Configure CMake
         shell: cmd
         run: |
           cmake -G Ninja -B build ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%\vst3sdk" ^
+          -DVST3_SDK_ROOT="%GITHUB_WORKSPACE%" ^
           -DSMTG_ADD_VSTGUI=ON ^
           -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
 
