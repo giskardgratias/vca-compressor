@@ -12,26 +12,25 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Download VST3 SDK
+      - name: Setup VST3 SDK (No-Git Method)
         shell: pwsh
         run: |
-          # Téléchargement direct du ZIP pour éviter l'erreur Git 128
-          $url = "https://github.com/steinbergmedia/vst3sdk/archive/refs/tags/v3.7.9_build-61.zip"
-          Invoke-WebRequest -Uri $url -OutFile vst3sdk.zip
-          Expand-Archive -Path vst3sdk.zip -DestinationPath .
-          
-          # On renomme le dossier extrait pour qu'il soit simple à trouver
-          $extractedFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
-          Rename-Item -Path $extractedFolder.FullName -NewName "vst3sdk"
-          
-          # Initialisation des sous-modules nécessaires (VSTGUI, etc.) si absents
+          # 1. Télécharger et extraire le SDK principal
+          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/tags/v3.7.9_build-61.zip" -OutFile sdk.zip
+          Expand-Archive -Path sdk.zip -DestinationPath .
+          $sdkFolder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
+          Rename-Item -Path $sdkFolder.FullName -NewName "vst3sdk"
+
+          # 2. Télécharger VSTGUI séparément (souvent requis pour le build)
           cd vst3sdk
-          git clone --depth 1 https://github.com/steinbergmedia/vstgui.git
-          cd ..
+          Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vstgui/archive/refs/heads/master.zip" -OutFile vstgui.zip
+          Expand-Archive -Path vstgui.zip -DestinationPath .
+          $guiFolder = Get-ChildItem -Directory -Filter "vstgui-*" | Select-Object -First 1
+          Rename-Item -Path $guiFolder.FullName -NewName "vstgui"
 
       - name: Configure CMake
         shell: cmd
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST3_SDK_ROOT=%GITHUB_WORKSPACE%\vst3sdk -DSMTG_ADD_VSTGUI=OFF -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST3_SDK_ROOT=%GITHUB_WORKSPACE%\vst3sdk -DSMTG_ADD_VSTGUI=ON -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON
 
       - name: Build plugin
         shell: cmd
@@ -41,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vst3) { throw "Fichier VST3 non trouvé !" }
+          if (-not $vst3) { Write-Error "Fichier VST3 non généré !"; exit 1 }
           New-Item -ItemType Directory -Force -Path staging
           Copy-Item -Recurse -Force $vst3 staging/
 
