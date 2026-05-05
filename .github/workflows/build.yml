@@ -12,12 +12,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Download VST3 SDK
+      - name: Setup VST3 SDK
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://github.com/steinbergmedia/vst3sdk/archive/refs/tags/v3.7.9_build-61.zip" -OutFile vst3sdk.zip
           Expand-Archive -Path vst3sdk.zip -DestinationPath .
-          Rename-Item -Path "vst3sdk-3.7.9_build-61" -NewName "vst3sdk"
+          # On deplace le contenu pour avoir un chemin simple
+          $folder = Get-ChildItem -Directory -Filter "vst3sdk-*" | Select-Object -First 1
+          Move-Item -Path "$($folder.FullName)" -Destination "vst3sdk"
 
       - name: Configure CMake
         shell: cmd
@@ -43,7 +45,7 @@ jobs:
       - name: Create installer script
         shell: pwsh
         run: |
-          $content = @"
+          $iss = @"
           [Setup]
           AppName=VCA Compressor
           AppVersion=1.0.0
@@ -64,7 +66,7 @@ jobs:
           [Icons]
           Name: {group}\Uninstall VCA Compressor; Filename: {uninstallexe}
           "@
-          $content | Out-File -FilePath setup.iss -Encoding utf8
+          $iss | Out-File -FilePath setup.iss -Encoding utf8
 
       - name: Build installer
         shell: cmd
